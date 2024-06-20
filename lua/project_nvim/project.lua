@@ -12,15 +12,23 @@ M.last_project = nil
 function M.find_lsp_root()
   -- Get lsp client for current buffer
   -- Returns nil or string
-  local buf_ft = vim.api.nvim_buf_get_option(0, "filetype")
-  local clients = vim.lsp.buf_get_clients()
+  local clients, buf_ft
+  if vim.fn.has("nvim-0.10") == 1 then
+    buf_ft = vim.api.nvim_get_option_value("filetype", { buf = 0 })
+    clients = vim.lsp.get_clients()
+  else
+---@diagnostic disable-next-line: deprecated
+    buf_ft = vim.api.nvim_buf_get_option(0, "filetype")
+---@diagnostic disable-next-line: deprecated
+    clients = vim.lsp.buf_get_clients()
+  end
   if next(clients) == nil then
     return nil
   end
 
   for _, client in pairs(clients) do
-    local filetypes = client.config.filetypes
-    if filetypes and vim.tbl_contains(filetypes, buf_ft) then
+    local filetypes = client.config.filetypes or {}
+    if vim.tbl_contains(filetypes, buf_ft) then
       if not vim.tbl_contains(config.options.ignore_lsp, client.name) then
         return client.config.root_dir, client.name
       end
@@ -39,12 +47,12 @@ function M.find_pattern_root()
   local last_dir_cache = ""
   local curr_dir_cache = {}
 
-  local function get_parent(path)
-    path = path:match("^(.*)/")
-    if path == "" then
-      path = "/"
+  local function get_parent(path_to_match)
+    local match = path_to_match:match("^(.*)/")
+    if match == "" then
+      match = "/"
     end
-    return path
+    return match
   end
 
   local function get_files(file_dir)
@@ -270,7 +278,7 @@ function M.init()
   ]])
 
   autocmds[#autocmds + 1] =
-    'autocmd VimLeavePre * lua require("project_nvim.utils.history").write_projects_to_history()'
+  'autocmd VimLeavePre * lua require("project_nvim.utils.history").write_projects_to_history()'
 
   vim.cmd([[augroup project_nvim
             au!
